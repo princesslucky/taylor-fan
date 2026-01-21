@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>테일러</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <style>
+        body { font-family: sans-serif; background-color: #ffffff; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; text-align: center; }
+        /* 리스트 화면 */
+        .album-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        .album-card { cursor: pointer; border: 1px solid #eee; padding: 10px; border-radius: 12px; }
+        .album-card img { width: 100%; border-radius: 8px; display: block; aspect-ratio: 1/1; object-fit: cover; }
+        .album-card h4 { margin: 10px 0 0 0; font-size: 0.9em; color: #555; }
+        /* 상세 방 화면 */
+        #album-room { display: none; }
+        .room-header img { width: 280px; height: 280px; border-radius: 15px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .back-btn { background: #f0f0f0; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; margin-bottom: 20px; font-weight: bold; }
+        textarea { width: 100%; height: 120px; margin: 15px 0; padding: 15px; border: 1px solid #ddd; border-radius: 10px; box-sizing: border-box; font-size: 16px; resize: none; }
+        .post-btn { background-color: #000; color: #fff; border: none; padding: 15px; border-radius: 10px; cursor: pointer; font-weight: bold; width: 100%; font-size: 16px; }
+        /* 광고 빈칸 */
+        .ad-space { display: flex; justify-content: space-around; margin: 20px 0; height: 90px; }
+        .ad-box { width: 30%; background-color: #ffffff; }
+        .review-item { text-align: left; background: #f8f8f8; padding: 15px; margin-top: 15px; border-radius: 10px; border-left: 4px solid #b19cd9; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="login-screen">
+        <h1>🏹 테일러</h1>
+        <input type="text" id="username" placeholder="닉네임을 입력하세요" style="padding:15px; width:80%; border:1px solid #ddd; border-radius:10px;"><br><br>
+        <button class="post-btn" onclick="login()" style="width:80%;">입장하기</button>
+    </div>
+
+    <div id="list-screen" style="display:none;">
+        <h1>🏹 테일러</h1>
+        <p>앨범을 선택해 방으로 입장하세요.</p>
+        <div class="album-grid" id="album-grid"></div>
+    </div>
+
+    <div id="album-room">
+        <button class="back-btn" onclick="goBack()">← 목록으로</button>
+        <div id="room-header"></div>
+        <div class="ad-space"><div class="ad-box"></div><div class="ad-box"></div><div class="ad-box"></div></div>
+        <textarea id="review-input" placeholder="이 앨범에 대한 당신의 이야기를 들려주세요."></textarea>
+        <button class="post-btn" onclick="saveReview()">기록하기</button>
+        <div id="review-list" style="margin-top:30px;"></div>
+    </div>
+</div>
+
+<script>
+    const firebaseConfig = { databaseURL: "https://taylorswift-3836d-default-rtdb.firebaseio.com/" };
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    let currentUser = "";
+    let currentAlbumId = "";
+
+    // 사진 주소를 절대 안 깨지는 고화질 주소로 변경
+    const albums = [
+        { id: "1", name: "Taylor Swift", img: "https://www.theaudiodb.com/images/media/album/thumb/taylor-swift-taylor-swift-4ee2041249964.jpg" },
+        { id: "2", name: "Fearless (TV)", img: "https://www.theaudiodb.com/images/media/album/thumb/taylor-swift-fearless-taylors-version-606ec54770265.jpg" },
+        { id: "3", name: "Speak Now (TV)", img: "https://www.theaudiodb.com/images/media/album/thumb/taylor-swift-speak-now-taylors-version-64a5307f59d2a.jpg" },
+        { id: "4", name: "Red (TV)", img: "https://www.theaudiodb.com/images/media/album/thumb/taylor-swift-red-taylors-version-6126605a9616d.jpg" },
+        { id: "5", name: "1989 (TV)", img: "https://www.theaudiodb.com/images/media/album/thumb/taylor-swift-1989-taylors-version-653ba0f507b55.jpg" },
+        { id: "6", name: "reputation", img: "https://www.theaudiodb.com/images/media/album/thumb/taylor-swift-reputation-5a049451152d1.jpg" },
+        { id: "7", name: "Lover", img: "https://www.theaudiodb.com/images/media/album/thumb/taylor-swift-lover-5d5e56991054a.jpg" },
+        { id: "8", name: "folklore", img: "https://www.theaudiodb.com/images/media/album/thumb/taylor-swift-folklore-5f197022d26d4.jpg" },
+        { id: "9", name: "evermore", img: "https://www.theaudiodb.com/images/media/album/thumb/taylor-swift-evermore-5fd298e622449.jpg" },
+        { id: "10", name: "Midnights", img: "https://www.theaudiodb.com/images/media/album/thumb/taylor-swift-midnights-634fb7079218d.jpg" },
+        { id: "11", name: "TTPD", img: "https://www.theaudiodb.com/images/media/album/thumb/taylor-swift-the-tortured-poets-department-661f9d5019d5c.jpg" }
+    ];
+
+    function login() {
+        const name = document.getElementById('username').value;
+        if (name) {
+            currentUser = name;
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('list-screen').style.display = 'block';
+            renderList();
+        }
+    }
+
+    function renderList() {
+        const grid = document.getElementById('album-grid');
+        grid.innerHTML = "";
+        albums.forEach(album => {
+            const card = document.createElement('div');
+            card.className = "album-card";
+            card.onclick = () => openRoom(album);
+            card.innerHTML = `<img src="${album.img}"><h4>${album.name}</h4>`;
+            grid.appendChild(card);
+        });
+    }
+
+    function openRoom(album) {
+        currentAlbumId = album.id;
+        document.getElementById('list-screen').style.display = 'none';
+        document.getElementById('album-room').style.display = 'block';
+        document.getElementById('room-header').innerHTML = `<h2 style="margin-bottom:10px;">${album.name}</h2><img src="${album.img}">`;
+        loadReviews();
+    }
+
+    function goBack() {
+        document.getElementById('album-room').style.display = 'none';
+        document.getElementById('list-screen').style.display = 'block';
+        window.scrollTo(0, 0);
+    }
+
+    function saveReview() {
+        const content = document.getElementById('review-input').value;
+        if (!content) return alert("이야기를 써주세요!");
+        database.ref('reviews/' + currentAlbumId).push({
+            user: currentUser,
+            content: content,
+            date: new Date().toLocaleString()
+        });
+        document.getElementById('review-input').value = "";
+    }
+
+    function loadReviews() {
+        database.ref('reviews/' + currentAlbumId).on('value', (snapshot) => {
+            const list = document.getElementById('review-list');
+            list.innerHTML = "<h3 style='text-align:left;'>💬 기록들</h3>";
+            const data = snapshot.val();
+            if (data) {
+                Object.values(data).reverse().forEach(rev => {
+                    const item = document.createElement('div');
+                    item.className = "review-item";
+                    item.innerHTML = `<strong>${rev.user}</strong> <small style="color:#999; margin-left:10px;">${rev.date}</small><br><br>${rev.content}`;
+                    list.appendChild(item);
+                });
+            } else {
+                list.innerHTML += "<p style='color:#999;'>아직 남겨진 이야기가 없습니다.</p>";
+            }
+        });
+    }
+</script>
+</body>
+</html>
