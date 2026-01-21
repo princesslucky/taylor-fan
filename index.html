@@ -24,7 +24,7 @@ if 'user_name' not in st.session_state:
 st.title("🏹 Swiftie Critics")
 st.write(f"**{st.session_state.user_name}**님, 테일러의 음악 세계를 함께 기록해봐요.")
 
-# 앨범 리스트 (Taylor's Version 완벽 반영)
+# 앨범 리스트
 albums = {
     "Taylor Swift (2006)": "https://upload.wikimedia.org/wikipedia/en/b/b7/Taylor_Swift_-_Taylor_Swift.png",
     "Fearless (Taylor's Version)": "https://upload.wikimedia.org/wikipedia/en/f/f2/Taylor_Swift_-_Fearless.png",
@@ -39,27 +39,22 @@ albums = {
     "The Tortured Poets Department": "https://upload.wikimedia.org/wikipedia/en/5/52/The_Tortured_Poets_Department_-_Taylor_Swift.png"
 }
 
-# 빈 광고칸 (하얗게 비워두기)
+# 빈 광고칸
 def draw_empty_space():
-    st.components.v1.html("""
-    <div style="height: 90px; background-color: white;"></div>
-    """, height=90)
+    st.components.v1.html("""<div style="height: 90px; background-color: white;"></div>""", height=90)
 
 # 앨범 리스트 출력
 for name, img in albums.items():
     with st.expander(f"✨ {name} 게시판 보기"):
         st.image(img, width=220)
-        
-        # 하얗게 비워진 3개의 공간
         c1, c2, c3 = st.columns(3)
         with c1: draw_empty_space()
         with c2: draw_empty_space()
         with c3: draw_empty_space()
-
+        
         st.write("---")
         
-        # 평론 쓰기 (부드러운 문구로 수정)
-        u_content = st.text_area("이 앨범은 당신에게 어떤 의미인가요? 당신의 이야기를 들려주세요.", key=f"c_{name}", height=150)
+        u_content = st.text_area("이 앨범은 당신에게 어떤 의미인가요?", key=f"c_{name}", height=150)
         if st.button("공유하기", key=f"b_{name}"):
             if u_content:
                 post_data = {
@@ -67,7 +62,6 @@ for name, img in albums.items():
                     "content": u_content,
                     "date": datetime.now().strftime("%Y-%m-%d %H:%M")
                 }
-                # 파이어베이스 저장용 안전한 이름 만들기
                 safe_name = "".join(x for x in name if x.isalnum())
                 requests.post(f"{FIREBASE_URL}/reviews/{safe_name}.json", json=post_data)
                 st.success("소중한 의견이 등록되었습니다!")
